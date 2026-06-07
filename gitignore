@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────
+#  DistKV — .gitignore
+# ─────────────────────────────────────────────
+
+# ── Go build output ───────────────────────────
+/node
+/cli
+*.exe
+*.out
+dist/
+
+# ── Go module cache ───────────────────────────
+vendor/
+
+# ── WAL & data files ──────────────────────────
+/data/
+*.log
+wal.log
+*.wal
+
+# ── Docker ────────────────────────────────────
+docker-compose.override.yml
+
+# ── Environment & secrets ─────────────────────
+.env
+.env.*
+*.env
+secrets/
+
+# ── IDE & editor ──────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Test artifacts ────────────────────────────
+coverage.out
+coverage.html
+*.test
+
+# ── OS ────────────────────────────────────────
+.DS_Store
