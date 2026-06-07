@@ -63,10 +63,16 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/internal/ping", s.handlePing)
 	mux.HandleFunc("/internal/replicate", s.handleReplicate)
 	mux.HandleFunc("/internal/status", s.cluster.Monitor().StatusHandler())
-
 	mux.HandleFunc("/monitor", monitor.Handler)
 
-	return mux
+	return withCORS(mux)
+}
+
+func withCORS(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		h.ServeHTTP(w, r)
+	})
 }
 
 // handleKey routes GET/PUT/DELETE /key/{key}.
