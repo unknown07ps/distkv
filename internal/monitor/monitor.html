@@ -1,0 +1,882 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DistKV Monitor</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.x/dist/tabler-icons.min.css" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --font-sans: system-ui, -apple-system, sans-serif;
+    --font-mono: 'Menlo', 'Monaco', 'Consolas', monospace;
+    --color-bg:          #ffffff;
+    --color-bg-secondary:#f5f5f4;
+    --color-bg-tertiary: #eeede8;
+    --color-text-primary:#1a1a18;
+    --color-text-secondary:#6b6b67;
+    --color-text-tertiary:#9b9b96;
+    --color-border:      rgba(0,0,0,0.12);
+    --color-border-md:   rgba(0,0,0,0.20);
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --node1: #378ADD;  --node1-bg: #E6F1FB; --node1-dark: #185FA5;
+    --node2: #1D9E75;  --node2-bg: #E1F5EE; --node2-dark: #0F6E56;
+    --node3: #D85A30;  --node3-bg: #FAECE7; --node3-dark: #993C1D;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-bg:          #1c1c1a;
+      --color-bg-secondary:#252522;
+      --color-bg-tertiary: #2e2e2b;
+      --color-text-primary:#f0efe8;
+      --color-text-secondary:#a0a09a;
+      --color-text-tertiary:#68685f;
+      --color-border:      rgba(255,255,255,0.10);
+      --color-border-md:   rgba(255,255,255,0.18);
+      --node1: #85B7EB;  --node1-bg: #042C53; --node1-dark: #378ADD;
+      --node2: #5DCAA5;  --node2-bg: #04342C; --node2-dark: #1D9E75;
+      --node3: #F0997B;  --node3-bg: #4A1B0C; --node3-dark: #D85A30;
+    }
+  }
+  body {
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+  .topbar {
+    background: var(--color-bg);
+    border-bottom: 0.5px solid var(--color-border);
+    padding: 0 24px;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+  .topbar-logo {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    letter-spacing: -0.02em;
+  }
+  .topbar-sub {
+    font-size: 12px;
+    color: var(--color-text-tertiary);
+  }
+  .topbar-spacer { flex: 1; }
+  .topbar-status {
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text-secondary);
+  }
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: #1D9E75;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .page { max-width: 1100px; margin: 0 auto; padding: 24px 20px 48px; }
+  .section-label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--color-text-tertiary);
+    margin-bottom: 10px;
+  }
+
+  /* Metric strip */
+  .metric-strip { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 12px; margin-bottom: 28px; }
+  .metric {
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 14px 16px;
+  }
+  .metric-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 4px; }
+  .metric-val { font-size: 26px; font-weight: 500; font-variant-numeric: tabular-nums; }
+  .metric-sub { font-size: 11px; color: var(--color-text-tertiary); margin-top: 2px; }
+
+  /* Node grid */
+  .node-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 28px; }
+  .node-card {
+    background: var(--color-bg);
+    border: 0.5px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    transition: opacity 0.25s, border-color 0.25s;
+  }
+  .node-card.dead { opacity: 0.55; border-color: #E24B4A55; }
+  .node-header { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .node-dot { width: 8px; height: 8px; border-radius: 50%; background: #1D9E75; flex-shrink: 0; transition: background 0.3s; }
+  .node-dot.pulsing { animation: pulse 1.5s infinite; }
+  .node-dot.dead-dot { background: #E24B4A; animation: none; }
+  .node-name { font-size: 14px; font-weight: 500; flex: 1; }
+  .node-badge {
+    font-size: 11px; font-weight: 500; padding: 2px 8px;
+    border-radius: 99px; border: 0.5px solid;
+  }
+  .badge-n1 { background: var(--node1-bg); color: var(--node1-dark); border-color: var(--node1-dark); }
+  .badge-n2 { background: var(--node2-bg); color: var(--node2-dark); border-color: var(--node2-dark); }
+  .badge-n3 { background: var(--node3-bg); color: var(--node3-dark); border-color: var(--node3-dark); }
+  .node-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+  .node-row-label { color: var(--color-text-secondary); }
+  .node-row-val { font-weight: 500; font-variant-numeric: tabular-nums; }
+  .bar-wrap { margin-top: 10px; }
+  .bar-track { height: 4px; background: var(--color-bg-tertiary); border-radius: 99px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 99px; transition: width 0.5s ease; }
+  .bar-n1 { background: var(--node1); }
+  .bar-n2 { background: var(--node2); }
+  .bar-n3 { background: var(--node3); }
+  .node-actions { display: flex; gap: 6px; margin-top: 12px; flex-wrap: wrap; }
+
+  /* Buttons */
+  button {
+    font-family: inherit;
+    font-size: 12px;
+    padding: 5px 12px;
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--color-border-md);
+    background: transparent;
+    color: var(--color-text-primary);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: background 0.12s;
+  }
+  button:hover { background: var(--color-bg-secondary); }
+  button.btn-danger { color: #E24B4A; border-color: #E24B4A; }
+  button.btn-danger:hover { background: #FCEBEB; }
+  button.btn-success { color: #1D9E75; border-color: #1D9E75; }
+  button.btn-success:hover { background: #E1F5EE; }
+  input[type=text] {
+    font-family: inherit;
+    font-size: 13px;
+    padding: 6px 10px;
+    border: 0.5px solid var(--color-border-md);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    color: var(--color-text-primary);
+    outline: none;
+  }
+  input[type=text]:focus { border-color: var(--node1); box-shadow: 0 0 0 2px rgba(55,138,221,0.15); }
+
+  /* Two-col layout */
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .panel {
+    background: var(--color-bg);
+    border: 0.5px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .panel-header {
+    padding: 12px 16px;
+    border-bottom: 0.5px solid var(--color-border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-title { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 6px; }
+  .panel-body { padding: 14px 16px; }
+
+  /* Ring */
+  .ring-wrap { display: flex; justify-content: center; padding: 8px 0; }
+  .ring-legend { padding: 0 16px 12px; display: flex; gap: 14px; flex-wrap: wrap; }
+  .ring-legend-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--color-text-secondary); }
+  .ring-legend-dot { width: 9px; height: 9px; border-radius: 50%; }
+
+  /* Op log */
+  .op-log { max-height: 210px; overflow-y: auto; }
+  .op-entry {
+    display: flex; align-items: flex-start; gap: 8px;
+    padding: 6px 0;
+    border-bottom: 0.5px solid var(--color-border);
+    font-size: 12px;
+    animation: fadeIn 0.25s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; } }
+  .op-entry:last-child { border-bottom: none; }
+  .op-tag {
+    font-size: 10px; font-weight: 600; padding: 1px 6px;
+    border-radius: 4px; flex-shrink: 0; margin-top: 1px;
+  }
+  .tag-PUT  { background: #E1F5EE; color: #0F6E56; }
+  .tag-GET  { background: #E6F1FB; color: #185FA5; }
+  .tag-DEL  { background: #FAECE7; color: #993C1D; }
+  .tag-REPL { background: #EEEDFE; color: #534AB7; }
+  .tag-DEAD { background: #FCEBEB; color: #A32D2D; }
+  .tag-ALIVE{ background: #EAF3DE; color: #3B6D11; }
+  .op-node-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+  .op-key { font-weight: 500; }
+  .op-detail { flex: 1; color: var(--color-text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .op-time { color: var(--color-text-tertiary); font-size: 10px; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+
+  /* Key inspector */
+  .key-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .key-row input { flex: 1; }
+  .key-result {
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-md);
+    padding: 10px 12px;
+    min-height: 52px;
+    font-size: 13px;
+  }
+  .key-result-val { font-weight: 500; font-size: 15px; }
+  .key-result-meta { font-size: 11px; color: var(--color-text-tertiary); margin-top: 4px; }
+  .key-list { margin-top: 12px; font-size: 12px; color: var(--color-text-secondary); line-height: 2; }
+  .key-list-item { display: inline-flex; align-items: center; gap: 4px; margin-right: 10px; }
+  .key-list-dot { width: 6px; height: 6px; border-radius: 50; flex-shrink: 0; }
+
+  /* Sim controls */
+  .sim-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .sim-btn {
+    padding: 8px 12px;
+    text-align: left;
+    border-radius: var(--radius-md);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .sim-btn i { color: var(--color-text-secondary); font-size: 15px; }
+  .manual-put { margin-top: 14px; }
+  .manual-put-label { font-size: 11px; color: var(--color-text-secondary); margin-bottom: 6px; }
+  .manual-row { display: flex; gap: 6px; }
+  .manual-row input { flex: 1; font-size: 12px; }
+
+  /* WAL */
+  .wal-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 14px; margin-bottom: 28px; }
+  .wal-card {
+    background: var(--color-bg);
+    border: 0.5px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    padding: 14px;
+  }
+  .wal-title { font-size: 12px; font-weight: 500; margin-bottom: 8px; }
+  .wal-entries { font-family: var(--font-mono); font-size: 11px; color: var(--color-text-tertiary); line-height: 1.8; }
+  .wal-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .wal-op { font-weight: 600; }
+  .wal-op.PUT { color: #1D9E75; }
+  .wal-op.DEL { color: #D85A30; }
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <span class="topbar-logo">distkv</span>
+  <span class="topbar-sub">cluster monitor</span>
+  <span class="topbar-spacer"></span>
+  <div class="topbar-status">
+    <div class="status-dot" id="global-dot"></div>
+    <span id="global-status">all nodes healthy</span>
+  </div>
+</header>
+
+<main class="page">
+
+  <div class="section-label">overview</div>
+  <div class="metric-strip">
+    <div class="metric">
+      <div class="metric-label">alive nodes</div>
+      <div class="metric-val" id="m-alive">3 / 3</div>
+      <div class="metric-sub">all healthy</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">total ops</div>
+      <div class="metric-val" id="m-ops">0</div>
+      <div class="metric-sub">this session</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">keys stored</div>
+      <div class="metric-val" id="m-keys">0</div>
+      <div class="metric-sub">across all nodes</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">repl queue</div>
+      <div class="metric-val" id="m-repl">0</div>
+      <div class="metric-sub">pending writes</div>
+    </div>
+  </div>
+
+  <div class="section-label">nodes</div>
+  <div class="node-grid">
+    <div class="node-card" id="card-n1">
+      <div class="node-header">
+        <div class="node-dot pulsing" id="dot-n1"></div>
+        <span class="node-name">node1</span>
+        <span class="node-badge badge-n1">:8080</span>
+      </div>
+      <div class="node-row"><span class="node-row-label">status</span><span class="node-row-val" id="status-n1" style="color:#1D9E75">alive</span></div>
+      <div class="node-row"><span class="node-row-label">keys owned</span><span class="node-row-val" id="keys-n1">0</span></div>
+      <div class="node-row"><span class="node-row-label">missed pings</span><span class="node-row-val" id="miss-n1">0 / 3</span></div>
+      <div class="node-row"><span class="node-row-label">ops served</span><span class="node-row-val" id="ops-n1">0</span></div>
+      <div class="bar-wrap"><div class="bar-track"><div class="bar-fill bar-n1" id="bar-n1" style="width:0%"></div></div></div>
+      <div class="node-actions">
+        <button class="btn-danger" id="kill-n1" onclick="killNode('n1')">kill</button>
+        <button onclick="pingNode('n1')"><i class="ti ti-send" aria-hidden="true"></i> ping</button>
+      </div>
+    </div>
+    <div class="node-card" id="card-n2">
+      <div class="node-header">
+        <div class="node-dot pulsing" id="dot-n2"></div>
+        <span class="node-name">node2</span>
+        <span class="node-badge badge-n2">:8081</span>
+      </div>
+      <div class="node-row"><span class="node-row-label">status</span><span class="node-row-val" id="status-n2" style="color:#1D9E75">alive</span></div>
+      <div class="node-row"><span class="node-row-label">keys owned</span><span class="node-row-val" id="keys-n2">0</span></div>
+      <div class="node-row"><span class="node-row-label">missed pings</span><span class="node-row-val" id="miss-n2">0 / 3</span></div>
+      <div class="node-row"><span class="node-row-label">ops served</span><span class="node-row-val" id="ops-n2">0</span></div>
+      <div class="bar-wrap"><div class="bar-track"><div class="bar-fill bar-n2" id="bar-n2" style="width:0%"></div></div></div>
+      <div class="node-actions">
+        <button class="btn-danger" id="kill-n2" onclick="killNode('n2')">kill</button>
+        <button onclick="pingNode('n2')"><i class="ti ti-send" aria-hidden="true"></i> ping</button>
+      </div>
+    </div>
+    <div class="node-card" id="card-n3">
+      <div class="node-header">
+        <div class="node-dot pulsing" id="dot-n3"></div>
+        <span class="node-name">node3</span>
+        <span class="node-badge badge-n3">:8082</span>
+      </div>
+      <div class="node-row"><span class="node-row-label">status</span><span class="node-row-val" id="status-n3" style="color:#1D9E75">alive</span></div>
+      <div class="node-row"><span class="node-row-label">keys owned</span><span class="node-row-val" id="keys-n3">0</span></div>
+      <div class="node-row"><span class="node-row-label">missed pings</span><span class="node-row-val" id="miss-n3">0 / 3</span></div>
+      <div class="node-row"><span class="node-row-label">ops served</span><span class="node-row-val" id="ops-n3">0</span></div>
+      <div class="bar-wrap"><div class="bar-track"><div class="bar-fill bar-n3" id="bar-n3" style="width:0%"></div></div></div>
+      <div class="node-actions">
+        <button class="btn-danger" id="kill-n3" onclick="killNode('n3')">kill</button>
+        <button onclick="pingNode('n3')"><i class="ti ti-send" aria-hidden="true"></i> ping</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title"><i class="ti ti-circle-dotted" aria-hidden="true"></i> consistent hash ring</span>
+        <span style="font-size:11px;color:var(--color-text-tertiary)">150 vnodes/node</span>
+      </div>
+      <div class="ring-wrap">
+        <svg id="ring-svg" viewBox="0 0 260 260" width="240" height="240" role="img" aria-label="Consistent hash ring visualization"></svg>
+      </div>
+      <div class="ring-legend">
+        <span class="ring-legend-item"><span class="ring-legend-dot" style="background:var(--node1)"></span>node1</span>
+        <span class="ring-legend-item"><span class="ring-legend-dot" style="background:var(--node2)"></span>node2</span>
+        <span class="ring-legend-item"><span class="ring-legend-dot" style="background:var(--node3)"></span>node3</span>
+        <span class="ring-legend-item"><span class="ring-legend-dot" style="background:#888"></span>dead</span>
+        <span class="ring-legend-item"><span class="ring-legend-dot" style="background:#FFD700;border-radius:0"></span>keys</span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title"><i class="ti ti-terminal-2" aria-hidden="true"></i> operation log</span>
+        <button onclick="clearLog()">clear</button>
+      </div>
+      <div class="panel-body" style="padding:8px 12px;">
+        <div class="op-log" id="op-log">
+          <div style="font-size:12px;color:var(--color-text-tertiary);padding:8px 0;">no operations yet — simulate below</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title"><i class="ti ti-search" aria-hidden="true"></i> key inspector</span>
+      </div>
+      <div class="panel-body">
+        <div class="key-row">
+          <input type="text" id="key-input" placeholder="enter a key to inspect…" oninput="liveKeyLookup()" onkeydown="if(event.key==='Enter')liveKeyLookup()" />
+          <button onclick="liveKeyLookup()">lookup</button>
+        </div>
+        <div class="key-result" id="key-result">
+          <span style="color:var(--color-text-tertiary)">type a key to inspect it</span>
+        </div>
+        <div class="key-list">
+          <div class="section-label" style="margin-top:12px;margin-bottom:4px;">stored keys</div>
+          <div id="key-list-el">—</div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title"><i class="ti ti-player-play" aria-hidden="true"></i> simulate operations</span>
+      </div>
+      <div class="panel-body">
+        <div class="sim-grid">
+          <button class="sim-btn" onclick="simPut()"><i class="ti ti-pencil" aria-hidden="true"></i> PUT random key</button>
+          <button class="sim-btn" onclick="simGet()"><i class="ti ti-eye" aria-hidden="true"></i> GET random key</button>
+          <button class="sim-btn" onclick="simDelete()"><i class="ti ti-trash" aria-hidden="true"></i> DELETE key</button>
+          <button class="sim-btn" onclick="simBurst()"><i class="ti ti-bolt" aria-hidden="true"></i> burst (10 PUTs)</button>
+          <button class="sim-btn" onclick="simReplication()"><i class="ti ti-copy" aria-hidden="true"></i> replication wave</button>
+          <button class="sim-btn" onclick="simAll()"><i class="ti ti-refresh" aria-hidden="true"></i> random mix</button>
+        </div>
+        <div class="manual-put">
+          <div class="manual-put-label">manual PUT</div>
+          <div class="manual-row">
+            <input type="text" id="man-key" placeholder="key" />
+            <input type="text" id="man-val" placeholder="value" />
+            <button onclick="manualPut()">put</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="section-label">write-ahead log</div>
+  <div class="wal-grid">
+    <div class="wal-card">
+      <div class="wal-title" style="color:var(--node1-dark)">node1 WAL — /data/wal.log</div>
+      <div class="wal-entries" id="wal-n1"><span style="color:var(--color-text-tertiary)">empty</span></div>
+    </div>
+    <div class="wal-card">
+      <div class="wal-title" style="color:var(--node2-dark)">node2 WAL — /data/wal.log</div>
+      <div class="wal-entries" id="wal-n2"><span style="color:var(--color-text-tertiary)">empty</span></div>
+    </div>
+    <div class="wal-card">
+      <div class="wal-title" style="color:var(--node3-dark)">node3 WAL — /data/wal.log</div>
+      <div class="wal-entries" id="wal-n3"><span style="color:var(--color-text-tertiary)">empty</span></div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+// ─── Configuration ───────────────────────────────────────────────────────────
+// To connect to real nodes, set LIVE_MODE = true and update NODE_URLS.
+// In live mode the dashboard polls /internal/status every 2s per node.
+
+const LIVE_MODE = true;
+const NODE_URLS = {
+  n1: 'http://localhost:8080',
+  n2: 'http://localhost:8081',
+  n3: 'http://localhost:8082',
+};
+const POLL_INTERVAL_MS = 2000;
+
+// ─── State ───────────────────────────────────────────────────────────────────
+const NODE_COLORS = { n1: '#378ADD', n2: '#1D9E75', n3: '#D85A30' };
+const NODE_LABELS = { n1: 'node1', n2: 'node2', n3: 'node3' };
+
+const state = {
+  nodes: {
+    n1: { alive: true, missed: 0, ops: 0, keys: new Set(), wal: [] },
+    n2: { alive: true, missed: 0, ops: 0, keys: new Set(), wal: [] },
+    n3: { alive: true, missed: 0, ops: 0, keys: new Set(), wal: [] },
+  },
+  kvStore: {},
+  totalOps: 0,
+  replQueue: 0,
+  opLog: [],
+};
+
+// ─── Consistent Hash (mirrors internal/hash/consistent_hash.go) ──────────────
+function hashFnv32(str) {
+  let h = 2166136261;
+  for (let i = 0; i < str.length; i++) {
+    h ^= str.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h;
+}
+
+const VNODES = 20; // reduced from 150 for JS perf; behaviour identical
+
+function buildRing() {
+  const ring = [];
+  for (const n of ['n1', 'n2', 'n3']) {
+    if (!state.nodes[n].alive) continue;
+    for (let i = 0; i < VNODES; i++) {
+      ring.push({ pos: hashFnv32(`${n}#${i}`), node: n });
+    }
+  }
+  ring.sort((a, b) => a.pos - b.pos);
+  return ring;
+}
+
+function ownerOf(key) {
+  const ring = buildRing();
+  if (!ring.length) return null;
+  const pos = hashFnv32(key);
+  const idx = ring.findIndex(r => r.pos >= pos);
+  return ring[idx === -1 ? 0 : idx].node;
+}
+
+function aliveNodes() {
+  return Object.keys(state.nodes).filter(n => state.nodes[n].alive);
+}
+
+// ─── Log ─────────────────────────────────────────────────────────────────────
+function addLog(type, key, detail, node) {
+  const t = new Date();
+  const ts = `${String(t.getMinutes()).padStart(2,'0')}:${String(t.getSeconds()).padStart(2,'0')}.${String(t.getMilliseconds()).padStart(3,'0')}`;
+  state.opLog.unshift({ type, key, detail, node, ts });
+  if (state.opLog.length > 80) state.opLog.pop();
+  renderLog();
+}
+
+function renderLog() {
+  const el = document.getElementById('op-log');
+  if (!state.opLog.length) {
+    el.innerHTML = '<div style="font-size:12px;color:var(--color-text-tertiary);padding:8px 0;">no ops</div>';
+    return;
+  }
+  el.innerHTML = state.opLog.slice(0, 35).map(e => {
+    const col = e.node ? NODE_COLORS[e.node] : '#888';
+    return `<div class="op-entry">
+      <div class="op-node-dot" style="background:${col}"></div>
+      <span class="op-tag tag-${e.type}">${e.type}</span>
+      <span class="op-key">${e.key || ''}</span>
+      <span class="op-detail">${e.detail}</span>
+      <span class="op-time">${e.ts}</span>
+    </div>`;
+  }).join('');
+}
+
+function clearLog() {
+  state.opLog = [];
+  renderLog();
+}
+
+// ─── Core operations ─────────────────────────────────────────────────────────
+function doPut(key, value, fromNode) {
+  const owner = ownerOf(key);
+  if (!owner) { addLog('PUT', key, 'no alive nodes — rejected', null); return; }
+  const routed = fromNode || owner;
+  state.kvStore[key] = value;
+  state.nodes[owner].keys.add(key);
+  state.nodes[owner].ops++;
+  state.nodes[owner].wal.push({ op: 'PUT', key, val: value });
+  state.totalOps++;
+
+  const peers = aliveNodes().filter(n => n !== owner);
+  state.replQueue += peers.length;
+
+  const proxied = routed !== owner ? ` (proxied from ${NODE_LABELS[routed]})` : '';
+  addLog('PUT', key, `→ ${NODE_LABELS[owner]}${proxied} = "${value}"`, owner);
+
+  setTimeout(() => {
+    for (const peer of peers) {
+      state.nodes[peer].wal.push({ op: 'PUT', key, val: value });
+      state.replQueue = Math.max(0, state.replQueue - 1);
+      addLog('REPL', key, `${NODE_LABELS[owner]} → ${NODE_LABELS[peer]}`, peer);
+    }
+    updateAll();
+  }, 150 + Math.random() * 300);
+
+  updateAll();
+}
+
+function doGet(key, fromNode) {
+  const owner = ownerOf(key);
+  if (!owner) { addLog('GET', key, 'no alive nodes', null); return; }
+  state.nodes[owner].ops++;
+  state.totalOps++;
+  const val = state.kvStore[key];
+  const found = val !== undefined ? `"${val}" from ${NODE_LABELS[owner]}` : `not found`;
+  addLog('GET', key, found + (fromNode && fromNode !== owner ? ' (proxied)' : ''), owner);
+  updateAll();
+}
+
+function doDelete(key) {
+  const owner = ownerOf(key);
+  if (!owner) { addLog('DEL', key, 'no alive nodes', null); return; }
+  delete state.kvStore[key];
+  state.nodes[owner].keys.delete(key);
+  state.nodes[owner].ops++;
+  state.nodes[owner].wal.push({ op: 'DEL', key });
+  state.totalOps++;
+  const peers = aliveNodes().filter(n => n !== owner);
+  setTimeout(() => {
+    for (const peer of peers) {
+      state.nodes[peer].keys.delete(key);
+      state.nodes[peer].wal.push({ op: 'DEL', key });
+    }
+    updateAll();
+  }, 200);
+  addLog('DEL', key, `removed from ${NODE_LABELS[owner]}, replicate to ${peers.length} peer(s)`, owner);
+  updateAll();
+}
+
+func withCORS(h http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        w.Header().Set("Access-Control-Allow-Origin", "*")
+        h.ServeHTTP(w, r)
+    })
+}
+
+// ─── Node lifecycle ───────────────────────────────────────────────────────────
+function killNode(id) {
+  if (!state.nodes[id].alive) return;
+  state.nodes[id].alive = false;
+  state.nodes[id].missed = 3;
+  const ownedKeys = [...state.nodes[id].keys];
+  state.nodes[id].keys.clear();
+  for (const key of ownedKeys) {
+    const newOwner = ownerOf(key);
+    if (newOwner) state.nodes[newOwner].keys.add(key);
+  }
+  addLog('DEAD', NODE_LABELS[id], `3 heartbeats missed — removed from ring. ${ownedKeys.length} key(s) rehashed`, id);
+  updateAll();
+}
+
+function reviveNode(id) {
+  state.nodes[id].alive = true;
+  state.nodes[id].missed = 0;
+  let rehashed = 0;
+  for (const key of Object.keys(state.kvStore)) {
+    const owner = ownerOf(key);
+    if (owner === id) {
+      state.nodes[id].keys.add(key);
+      for (const other of ['n1', 'n2', 'n3']) {
+        if (other !== id) state.nodes[other].keys.delete(key);
+      }
+      rehashed++;
+    }
+  }
+  addLog('ALIVE', NODE_LABELS[id], `rejoined ring — ${rehashed} key(s) rehashed back`, id);
+  updateAll();
+}
+
+function pingNode(id) {
+  if (!state.nodes[id].alive) {
+    state.nodes[id].missed = Math.min(3, state.nodes[id].missed + 1);
+    addLog('DEAD', NODE_LABELS[id], `ping timeout (missed=${state.nodes[id].missed})`, id);
+  } else {
+    addLog('GET', '/internal/ping', `${NODE_LABELS[id]} → 200 OK`, id);
+  }
+  updateAll();
+}
+
+// ─── Simulation helpers ───────────────────────────────────────────────────────
+const WORDS = ['user','session','token','config','order','cart','profile','cache','event','queue','lock','flag','counter','secret','key','host','port','db','limit','rate'];
+const VALS  = ['true','false','42','active','pending','hello','world','beta','v2','enabled','locked','open','1000','ok'];
+const rkey = () => WORDS[Math.floor(Math.random()*WORDS.length)] + ':' + Math.floor(Math.random()*1000);
+const rval = () => VALS[Math.floor(Math.random()*VALS.length)];
+const rnode = () => { const a = aliveNodes(); return a[Math.floor(Math.random()*a.length)]; };
+
+function simPut()         { if (rnode()) doPut(rkey(), rval(), rnode()); }
+function simGet()         { const keys = Object.keys(state.kvStore); const n = rnode(); if (!n) return; doGet(keys.length ? keys[Math.floor(Math.random()*keys.length)] : rkey(), n); }
+function simDelete()      { const keys = Object.keys(state.kvStore); if (!keys.length) return; doDelete(keys[Math.floor(Math.random()*keys.length)]); }
+function simBurst()       { let i = 0; const iv = setInterval(() => { simPut(); if (++i >= 10) clearInterval(iv); }, 80); }
+function simReplication() { const keys = Object.keys(state.kvStore); const k = keys.length ? keys[Math.floor(Math.random()*keys.length)] : rkey(); doPut(k, state.kvStore[k] || rval()); }
+function simAll()         { const r = Math.random(); if (r < 0.5) simPut(); else if (r < 0.75) simGet(); else simDelete(); }
+
+function manualPut() {
+  const k = document.getElementById('man-key').value.trim();
+  const v = document.getElementById('man-val').value.trim();
+  if (!k || !v) return;
+  doPut(k, v, null);
+  document.getElementById('man-key').value = '';
+  document.getElementById('man-val').value = '';
+}
+
+// ─── Key inspector ───────────────────────────────────────────────────────────
+function liveKeyLookup() {
+  const k = document.getElementById('key-input').value.trim();
+  const el = document.getElementById('key-result');
+  if (!k) { el.innerHTML = '<span style="color:var(--color-text-tertiary)">type a key to inspect it</span>'; return; }
+  const owner = ownerOf(k);
+  const val = state.kvStore[k];
+  const col = owner ? NODE_COLORS[owner] : '#888';
+  const label = owner ? NODE_LABELS[owner] : 'none';
+  el.innerHTML = `
+    <div class="key-result-val">${val !== undefined ? `"${val}"` : '(not stored)'}</div>
+    <div class="key-result-meta">
+      owner: <span style="color:${col};font-weight:500">${label}</span>
+      &nbsp;·&nbsp; hash: 0x${hashFnv32(k).toString(16).toUpperCase().padStart(8,'0')}
+      ${val !== undefined ? '&nbsp;·&nbsp; exists: yes' : ''}
+    </div>`;
+}
+
+// ─── Render ───────────────────────────────────────────────────────────────────
+function updateAll() {
+  updateMetrics();
+  updateNodeCards();
+  updateWal();
+  updateKeyList();
+  drawRing();
+  const k = document.getElementById('key-input').value.trim();
+  if (k) liveKeyLookup();
+}
+
+function updateMetrics() {
+  const alive = aliveNodes().length;
+  document.getElementById('m-alive').textContent = `${alive} / 3`;
+  document.getElementById('m-ops').textContent = state.totalOps;
+  document.getElementById('m-keys').textContent = Object.keys(state.kvStore).length;
+  document.getElementById('m-repl').textContent = state.replQueue;
+  const dot = document.getElementById('global-dot');
+  const statusEl = document.getElementById('global-status');
+  if (alive === 3) {
+    dot.style.background = '#1D9E75';
+    statusEl.textContent = 'all nodes healthy';
+  } else if (alive > 0) {
+    dot.style.background = '#EF9F27';
+    statusEl.textContent = `${3 - alive} node(s) down`;
+  } else {
+    dot.style.background = '#E24B4A';
+    statusEl.textContent = 'cluster unavailable';
+  }
+}
+
+function updateNodeCards() {
+  const maxOps = Math.max(1, ...Object.values(state.nodes).map(n => n.ops));
+  for (const id of ['n1', 'n2', 'n3']) {
+    const n = state.nodes[id];
+    document.getElementById(`card-${id}`).classList.toggle('dead', !n.alive);
+    const dot = document.getElementById(`dot-${id}`);
+    const statusEl = document.getElementById(`status-${id}`);
+    const killBtn = document.getElementById(`kill-${id}`);
+    if (n.alive) {
+      dot.className = 'node-dot pulsing';
+      dot.style.background = '#1D9E75';
+      statusEl.textContent = 'alive'; statusEl.style.color = '#1D9E75';
+      killBtn.textContent = 'kill'; killBtn.className = 'btn-danger';
+      killBtn.setAttribute('onclick', `killNode('${id}')`);
+    } else {
+      dot.className = 'node-dot dead-dot';
+      statusEl.textContent = 'dead'; statusEl.style.color = '#E24B4A';
+      killBtn.textContent = 'revive'; killBtn.className = 'btn-success';
+      killBtn.setAttribute('onclick', `reviveNode('${id}')`);
+    }
+    document.getElementById(`keys-${id}`).textContent = n.keys.size;
+    document.getElementById(`miss-${id}`).textContent = `${n.missed} / 3`;
+    document.getElementById(`ops-${id}`).textContent = n.ops;
+    document.getElementById(`bar-${id}`).style.width = `${Math.round((n.ops / maxOps) * 100)}%`;
+  }
+}
+
+function updateWal() {
+  for (const id of ['n1', 'n2', 'n3']) {
+    const entries = state.nodes[id].wal;
+    const el = document.getElementById(`wal-${id}`);
+    if (!entries.length) { el.innerHTML = '<span style="color:var(--color-text-tertiary)">empty</span>'; continue; }
+    el.innerHTML = entries.slice(-6).reverse().map(e =>
+      `<div class="wal-line"><span class="wal-op ${e.op}">${e.op}</span> <b>${e.key}</b>${e.val ? ` = ${e.val}` : ''}</div>`
+    ).join('');
+  }
+}
+
+function updateKeyList() {
+  const keys = Object.keys(state.kvStore);
+  const el = document.getElementById('key-list-el');
+  if (!keys.length) { el.textContent = '—'; return; }
+  el.innerHTML = keys.slice(-12).map(k => {
+    const owner = ownerOf(k);
+    const col = owner ? NODE_COLORS[owner] : '#888';
+    const label = owner ? NODE_LABELS[owner] : 'none';
+    return `<span class="key-list-item">
+      <span class="key-list-dot" style="background:${col};width:6px;height:6px;border-radius:50%;display:inline-block"></span>
+      <b>${k}</b>
+      <span style="font-size:10px;color:var(--color-text-tertiary)">${label}</span>
+    </span>`;
+  }).join('');
+}
+
+function drawRing() {
+  const svg = document.getElementById('ring-svg');
+  svg.innerHTML = '';
+  const cx = 130, cy = 130, r = 100;
+  const track = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+  track.setAttribute('cx', cx); track.setAttribute('cy', cy); track.setAttribute('r', r);
+  track.setAttribute('fill', 'none');
+  track.setAttribute('stroke', 'var(--color-border)'); track.setAttribute('stroke-width', '1.5');
+  svg.appendChild(track);
+
+  const nodeAngles = { n1: -Math.PI/2, n2: Math.PI/6, n3: 5*Math.PI/6 };
+
+  for (const n of ['n1', 'n2', 'n3']) {
+    const col = state.nodes[n].alive ? NODE_COLORS[n] : '#777';
+    for (let i = 0; i < VNODES; i++) {
+      const pos = hashFnv32(`${n}#${i}`);
+      const angle = (pos / 4294967296) * Math.PI * 2 - Math.PI / 2;
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      const dot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      dot.setAttribute('cx', x.toFixed(1)); dot.setAttribute('cy', y.toFixed(1));
+      dot.setAttribute('r', '4'); dot.setAttribute('fill', col);
+      dot.setAttribute('opacity', state.nodes[n].alive ? '0.8' : '0.25');
+      svg.appendChild(dot);
+    }
+    const lx = cx + (r + 20) * Math.cos(nodeAngles[n]);
+    const ly = cy + (r + 20) * Math.sin(nodeAngles[n]);
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    lbl.setAttribute('x', lx.toFixed(1)); lbl.setAttribute('y', (ly + 4).toFixed(1));
+    lbl.setAttribute('text-anchor', 'middle'); lbl.setAttribute('font-size', '11');
+    lbl.setAttribute('font-weight', '500'); lbl.setAttribute('fill', col);
+    lbl.textContent = NODE_LABELS[n];
+    svg.appendChild(lbl);
+  }
+
+  for (const key of Object.keys(state.kvStore)) {
+    const pos = hashFnv32(key);
+    const angle = (pos / 4294967296) * Math.PI * 2 - Math.PI / 2;
+    const kr = r - 20;
+    const x = cx + kr * Math.cos(angle);
+    const y = cy + kr * Math.sin(angle);
+    const owner = ownerOf(key);
+    const star = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    const pts = [];
+    for (let i = 0; i < 6; i++) {
+      const a = (i / 6) * Math.PI * 2;
+      const rad = i % 2 === 0 ? 5 : 2.5;
+      pts.push(`${(x + rad * Math.cos(a)).toFixed(1)},${(y + rad * Math.sin(a)).toFixed(1)}`);
+    }
+    star.setAttribute('points', pts.join(' '));
+    star.setAttribute('fill', owner ? NODE_COLORS[owner] : '#888');
+    svg.appendChild(star);
+  }
+}
+
+// ─── Live mode: poll real nodes ───────────────────────────────────────────────
+async function pollNodes() {
+  if (!LIVE_MODE) return;
+  for (const id of ['n1', 'n2', 'n3']) {
+    try {
+      const resp = await fetch(`${NODE_URLS[id]}/internal/status`, { signal: AbortSignal.timeout(1500) });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      // data.peers is []NodeState{Addr, Alive, Missed}
+      // Update peer states as seen from this node
+      for (const peer of (data.peers || [])) {
+        const peerId = Object.keys(NODE_URLS).find(k => NODE_URLS[k].includes(peer.Addr.split(':')[1]));
+        if (peerId) {
+          state.nodes[peerId].alive = peer.Alive;
+          state.nodes[peerId].missed = peer.Missed;
+        }
+      }
+      // This node itself is alive if we reached it
+      if (!state.nodes[id].alive) {
+        state.nodes[id].alive = true;
+        state.nodes[id].missed = 0;
+        addLog('ALIVE', NODE_LABELS[id], 'responded to status poll', id);
+      }
+    } catch (_) {
+      if (state.nodes[id].alive) {
+        killNode(id);
+      }
+    }
+  }
+  updateAll();
+}
+
+if (LIVE_MODE) {
+  setInterval(pollNodes, POLL_INTERVAL_MS);
+  pollNodes();
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+updateAll();
+</script>
+</body>
+</html>

@@ -1,18 +1,20 @@
 // Package server exposes the KV store over HTTP.
 //
 // Public endpoints (clients use these):
-//   GET    /key/{key}     — returns value or 404
-//   PUT    /key/{key}     — sets value, replicates async
-//   DELETE /key/{key}     — deletes key, replicates async
+//
+//	GET    /key/{key}     — returns value or 404
+//	PUT    /key/{key}     — sets value, replicates async
+//	DELETE /key/{key}     — deletes key, replicates async
 //
 // Routing: if the consistent hash ring routes the key to a different node,
 // this handler proxies the request to that node. This is transparent to
 // the client — any node can serve any key.
 //
 // Internal endpoints (nodes use these, not clients):
-//   GET  /internal/ping       — liveness check for gossip
-//   POST /internal/replicate  — receive a replicated write
-//   GET  /internal/status     — cluster liveness view
+//
+//	GET  /internal/ping       — liveness check for gossip
+//	POST /internal/replicate  — receive a replicated write
+//	GET  /internal/status     — cluster liveness view
 package server
 
 import (
@@ -25,6 +27,7 @@ import (
 	"time"
 
 	"github.com/you/distkv/internal/cluster"
+	"github.com/you/distkv/internal/monitor"
 	"github.com/you/distkv/internal/replication"
 	"github.com/you/distkv/internal/store"
 )
@@ -60,6 +63,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/internal/ping", s.handlePing)
 	mux.HandleFunc("/internal/replicate", s.handleReplicate)
 	mux.HandleFunc("/internal/status", s.cluster.Monitor().StatusHandler())
+
+	mux.HandleFunc("/monitor", monitor.Handler)
 
 	return mux
 }
