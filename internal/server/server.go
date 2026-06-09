@@ -15,6 +15,7 @@
 //	GET  /internal/ping       — liveness check for gossip
 //	POST /internal/replicate  — receive a replicated write
 //	GET  /internal/status     — cluster liveness view
+//	GET  /monitor             — cluster monitoring dashboard
 package server
 
 import (
@@ -63,14 +64,30 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/internal/ping", s.handlePing)
 	mux.HandleFunc("/internal/replicate", s.handleReplicate)
 	mux.HandleFunc("/internal/status", s.cluster.Monitor().StatusHandler())
+
+	// Monitor dashboard — register both with and without trailing slash so
+	// the browser doesn't get a 404 on either form of the URL.
 	mux.HandleFunc("/monitor", monitor.Handler)
+	mux.HandleFunc("/monitor/", monitor.Handler)
 
 	return withCORS(mux)
 }
 
+// withCORS adds permissive CORS headers and handles OPTIONS preflight requests.
+// The monitor dashboard fetches /internal/status from all three nodes, which
+// are on different ports — the browser treats them as cross-origin.
 func withCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, PUT, DELETE, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		// Preflight: respond immediately without hitting the mux.
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+
 		h.ServeHTTP(w, r)
 	})
 }
