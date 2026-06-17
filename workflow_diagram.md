@@ -1,4 +1,4 @@
-# DistKV — System Architecture & Workflow Diagrams
+# Madonna — System Architecture & Workflow Diagrams
 
 ## 1. High-Level System Architecture
 
@@ -9,7 +9,7 @@ graph TB
         CURL["curl / HTTP Client"]
     end
 
-    subgraph "Docker Network: distkv"
+    subgraph "Docker Network: madonna"
         subgraph "Node 1 (localhost:8080)"
             S1["HTTP Server"]
             CL1["Cluster Manager"]
@@ -237,10 +237,10 @@ graph LR
 graph TB
     subgraph "Host Machine"
         subgraph "Docker Compose Orchestration"
-            subgraph "Bridge Network: distkv"
-                N1["Container: node1<br/>Image: distkv<br/>Port: 8080→8080<br/>Volume: node1-data:/data"]
-                N2["Container: node2<br/>Image: distkv<br/>Port: 8081→8080<br/>Volume: node2-data:/data"]
-                N3["Container: node3<br/>Image: distkv<br/>Port: 8082→8080<br/>Volume: node3-data:/data"]
+            subgraph "Bridge Network: madonna"
+                N1["Container: node1<br/>Image: madonna<br/>Port: 8080→8080<br/>Volume: node1-data:/data"]
+                N2["Container: node2<br/>Image: madonna<br/>Port: 8081→8080<br/>Volume: node2-data:/data"]
+                N3["Container: node3<br/>Image: madonna<br/>Port: 8082→8080<br/>Volume: node3-data:/data"]
             end
         end
 
@@ -328,9 +328,9 @@ sequenceDiagram
 
 | Variable | Purpose | Example |
 |---|---|---|
-| `DISTKV_ADDR` | This node's address (host:port) | `node1:8080` |
-| `DISTKV_PEERS` | Comma-separated peer addresses | `node2:8080,node3:8080` |
-| `DISTKV_WAL` | Path to WAL file | `/data/wal.log` |
+| `MADONNA_ADDR` | This node's address (host:port) | `node1:8080` |
+| `MADONNA_PEERS` | Comma-separated peer addresses | `node2:8080,node3:8080` |
+| `MADONNA_WAL` | Path to WAL file | `/data/wal.log` |
 
 ---
 

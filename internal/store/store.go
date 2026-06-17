@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/you/distkv/internal/wal"
+	"github.com/you/madonna/internal/wal"
 )
 
 // Store is a durable in-memory key-value store.

@@ -1,5 +1,5 @@
 networks:
-  distkv:
+  madonna:
     driver: bridge
 
 volumes:
@@ -11,41 +11,41 @@ services:
   node1:
     build: .
     environment:
-      DISTKV_ADDR: "node1:8080"
-      DISTKV_PEERS: "node2:8080,node3:8080"
-      DISTKV_WAL: "/data/wal.log"
+      MADONNA_ADDR: "node1:8080"
+      MADONNA_PEERS: "node2:8080,node3:8080"
+      MADONNA_WAL: "/data/wal.log"
     ports:
       - "8080:8080"
     volumes:
       - node1-data:/data
     networks:
-      - distkv
+      - madonna
     restart: unless-stopped
 
   node2:
     build: .
     environment:
-      DISTKV_ADDR: "node2:8080"
-      DISTKV_PEERS: "node1:8080,node3:8080"
-      DISTKV_WAL: "/data/wal.log"
+      MADONNA_ADDR: "node2:8080"
+      MADONNA_PEERS: "node1:8080,node3:8080"
+      MADONNA_WAL: "/data/wal.log"
     ports:
       - "8081:8080"
     volumes:
       - node2-data:/data
     networks:
-      - distkv
+      - madonna
     restart: unless-stopped
 
   node3:
     build: .
     environment:
-      DISTKV_ADDR: "node3:8080"
-      DISTKV_PEERS: "node1:8080,node2:8080"
-      DISTKV_WAL: "/data/wal.log"
+      MADONNA_ADDR: "node3:8080"
+      MADONNA_PEERS: "node1:8080,node2:8080"
+      MADONNA_WAL: "/data/wal.log"
     ports:
       - "8082:8080"
     volumes:
       - node3-data:/data
     networks:
-      - distkv
+      - madonna
     restart: unless-stopped

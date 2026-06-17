@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/you/distkv/internal/store"
+	"github.com/you/madonna/internal/store"
 )
 
 // BenchmarkStorePut measures raw put throughput (WAL + memory).

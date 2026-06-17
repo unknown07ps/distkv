@@ -1,4 +1,4 @@
-// CLI client for the distkv cluster.
+// CLI client for the madonna cluster.
 //
 // Usage:
 //   ./cli -node node1:8080 put mykey myvalue

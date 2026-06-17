@@ -1,4 +1,4 @@
-# DistKV
+# Madonna
 
 A production-grade distributed key-value store built from scratch in Go. No external consensus libraries — every component is hand-rolled to demonstrate the internals of a real distributed system.
 
@@ -155,14 +155,14 @@ All configuration is via environment variables — no config files, no rebuilds 
 
 | Variable | Description | Example |
 |---|---|---|
-| `DISTKV_ADDR` | This node's address | `node1:8080` |
-| `DISTKV_PEERS` | Comma-separated peer addresses | `node2:8080,node3:8080` |
-| `DISTKV_WAL` | Path to WAL file | `/data/wal.log` |
+| `MADONNA_ADDR` | This node's address | `node1:8080` |
+| `MADONNA_PEERS` | Comma-separated peer addresses | `node2:8080,node3:8080` |
+| `MADONNA_WAL` | Path to WAL file | `/data/wal.log` |
 
 ## Project Structure
 
 ```
-distkv/
+madonna/
 ├── cmd/
 │   ├── node/          # Node entrypoint
 │   └── cli/           # CLI client

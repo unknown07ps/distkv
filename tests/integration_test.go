@@ -1,4 +1,4 @@
-// Integration tests for the distkv cluster.
+// Integration tests for the madonna cluster.
 //
 // These tests spin up real in-process nodes and test the full stack:
 // consistent hash routing, async replication, WAL recovery.
@@ -14,10 +14,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/you/distkv/internal/cluster"
-	"github.com/you/distkv/internal/replication"
-	"github.com/you/distkv/internal/server"
-	"github.com/you/distkv/internal/store"
+	"github.com/you/madonna/internal/cluster"
+	"github.com/you/madonna/internal/replication"
+	"github.com/you/madonna/internal/server"
+	"github.com/you/madonna/internal/store"
 )
 
 // testNode holds all components for one in-process node.

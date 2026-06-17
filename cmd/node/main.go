@@ -1,8 +1,8 @@
-// Node entrypoint. Starts a single distkv node.
+// Node entrypoint. Starts a single madonna node.
 //
 // Usage:
-//   DISTKV_ADDR=node1:8080 DISTKV_PEERS=node2:8081,node3:8082 \
-//   DISTKV_WAL=/data/wal.log ./node
+//   MADONNA_ADDR=node1:8080 MADONNA_PEERS=node2:8081,node3:8082 \
+//   MADONNA_WAL=/data/wal.log ./node
 //
 // All configuration is via environment variables so Docker Compose
 // can inject values without rebuilding the binary.
@@ -14,17 +14,17 @@ import (
 	"os"
 	"strings"
 
-	"github.com/you/distkv/internal/cluster"
-	"github.com/you/distkv/internal/replication"
-	"github.com/you/distkv/internal/server"
-	"github.com/you/distkv/internal/store"
+	"github.com/you/madonna/internal/cluster"
+	"github.com/you/madonna/internal/replication"
+	"github.com/you/madonna/internal/server"
+	"github.com/you/madonna/internal/store"
 )
 
 func main() {
 	// Configuration from environment.
-	addr := mustEnv("DISTKV_ADDR")     // this node's address, e.g. node1:8080
-	walPath := getEnv("DISTKV_WAL", "/tmp/distkv-wal.log")
-	peersRaw := os.Getenv("DISTKV_PEERS") // comma-separated peer addresses
+	addr := mustEnv("MADONNA_ADDR")     // this node's address, e.g. node1:8080
+	walPath := getEnv("MADONNA_WAL", "/tmp/madonna-wal.log")
+	peersRaw := os.Getenv("MADONNA_PEERS") // comma-separated peer addresses
 
 	var peers []string
 	if peersRaw != "" {

@@ -14,8 +14,8 @@ package cluster
 import (
 	"sync"
 
-	"github.com/you/distkv/internal/gossip"
-	"github.com/you/distkv/internal/hash"
+	"github.com/you/madonna/internal/gossip"
+	"github.com/you/madonna/internal/hash"
 )
 
 // Cluster manages the set of nodes and routes keys to nodes.

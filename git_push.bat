@@ -1,6 +1,6 @@
 @echo off
 :: ─────────────────────────────────────────────
-::  DistKV — Git Push Script (Windows)
+::  Madonna — Git Push Script (Windows)
 :: ─────────────────────────────────────────────
 
 setlocal EnableDelayedExpansion
@@ -17,7 +17,7 @@ if "%COMMIT_MSG%"=="" (
 )
 
 echo.
-echo ^>^> DistKV Git Push
+echo ^>^> Madonna Git Push
 echo    Branch  : %BRANCH%
 echo    Message : %COMMIT_MSG%
 echo.

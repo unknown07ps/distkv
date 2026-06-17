@@ -27,10 +27,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/you/distkv/internal/cluster"
-	"github.com/you/distkv/internal/monitor"
-	"github.com/you/distkv/internal/replication"
-	"github.com/you/distkv/internal/store"
+	"github.com/you/madonna/internal/cluster"
+	"github.com/you/madonna/internal/monitor"
+	"github.com/you/madonna/internal/replication"
+	"github.com/you/madonna/internal/store"
 )
 
 // Server wires together store, cluster, and replicator into an HTTP server.
