@@ -1,6 +1,6 @@
 # Madonna
 
-A production-grade distributed key-value store built from scratch in Go. No external consensus libraries — every component is hand-rolled to demonstrate the internals of a real distributed system.
+A production-grade distributed key-value store built from scratch in Go. No external consensus libraries: every component is hand-rolled to demonstrate the internals of a real distributed system.
 
 ## What's Inside
 
